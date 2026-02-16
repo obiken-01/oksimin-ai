@@ -1,4 +1,10 @@
+using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
+using OksiMin.Application.Interfaces;
+using OksiMin.Application.Services;
+using OksiMin.Application.Validators;
+using OksiMin.Infrastructure.Data;
 using Serilog;
 using Serilog.Events;
 
@@ -27,6 +33,7 @@ Log.Logger = new LoggerConfiguration()
         path: "Logs/oksimin-structured-.json",
         rollingInterval: RollingInterval.Day,
         retainedFileCountLimit: 30)
+    .WriteTo.Seq("http://localhost:5341")  // ← ADD THIS LINE
     .CreateLogger();
 
 try
@@ -58,21 +65,29 @@ try
     });
 
     // Database
-    /* TODO: to be setup later
     builder.Services.AddDbContext<OksiMinDbContext>(options =>
     {
         options.UseSqlServer(
             builder.Configuration.GetConnectionString("DefaultConnection"),
             sqlOptions => sqlOptions.EnableRetryOnFailure());
 
-        // Enable sensitive data logging in development
         if (builder.Environment.IsDevelopment())
         {
             options.EnableSensitiveDataLogging();
             options.EnableDetailedErrors();
         }
     });
-    */
+
+    builder.Services.AddScoped<IApplicationDbContext>(provider =>
+        provider.GetRequiredService<OksiMinDbContext>());
+
+    // Application Services
+    builder.Services.AddScoped<ISubmissionService, SubmissionService>();
+    builder.Services.AddScoped<ICategoryService, CategoryService>();
+    builder.Services.AddScoped<IPlaceService, PlaceService>();
+
+    // Validators
+    builder.Services.AddValidatorsFromAssemblyContaining<CreateSubmissionValidator>();
 
     // CORS
     builder.Services.AddCors(options =>
@@ -85,7 +100,9 @@ try
         });
     });
 
+    Log.Information("Building application...");
     var app = builder.Build();
+    Log.Information("Application built successfully");
 
     // ============================================
     // STEP 4: Add Serilog Request Logging
