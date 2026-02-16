@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="OksiMin.Api/OksiMin.Api.csproj" />
+  <Project Path="OksiMin.Application/OksiMin.Application.csproj" Id="23eaa7a5-c74f-452a-84c9-6d971b16b246" />
+  <Project Path="OksiMin.Domain/OksiMin.Domain.csproj" Id="619f7184-ecae-4095-863a-86452e910ef6" />
+  <Project Path="OksiMin.Infrastructure/OksiMin.Infrastructure.csproj" Id="b5b0ed8a-4673-458f-b112-820f35fd7c70" />
+</Solution>
