@@ -60,8 +60,21 @@ try
         {
             Title = "OksiMin.Api",
             Version = "v1",
-            Description = "AI-powered local information system for Occidental Mindoro"
+            Description = "AI-powered local information system for Occidental Mindoro, Philippines",
+            Contact = new OpenApiContact
+            {
+                Name = "OksiMin.Ai",
+                Email = "contact@oksimin.ai"
+            }
         });
+
+        // Enable XML comments for better Swagger documentation
+        var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+        if (File.Exists(xmlPath))
+        {
+            c.IncludeXmlComments(xmlPath);
+        }
     });
 
     // Database
