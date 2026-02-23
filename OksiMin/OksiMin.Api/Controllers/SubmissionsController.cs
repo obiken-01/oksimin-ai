@@ -41,8 +41,11 @@ namespace OksiMin.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> CreateSubmission([FromBody] CreateSubmissionRequest request)
         {
+            var correlationId = HttpContext.Items["CorrelationId"]?.ToString();
+
             _logger.LogInformation(
-                "Received submission request for {Name} in {Municipality}",
+                "Received submission request. CorrelationId: {CorrelationId}, Name: {Name}, Municipality: {Municipality}",
+                correlationId,
                 request.Name,
                 request.Municipality);
 
@@ -51,8 +54,8 @@ namespace OksiMin.Api.Controllers
             if (!validationResult.IsValid)
             {
                 _logger.LogWarning(
-                    "Validation failed for submission {Name}. Errors: {@ValidationErrors}",
-                    request.Name,
+                    "Validation failed. CorrelationId: {CorrelationId}, Errors: {@ValidationErrors}",
+                    correlationId,
                     validationResult.Errors.Select(e => new { e.PropertyName, e.ErrorMessage }));
 
                 return BadRequest(new ValidationErrorResponse
@@ -75,8 +78,8 @@ namespace OksiMin.Api.Controllers
             if (!result.IsSuccess)
             {
                 _logger.LogError(
-                    "Failed to create submission for {Name}. Error: {Error}",
-                    request.Name,
+                    "Failed to create submission. CorrelationId: {CorrelationId}. Error: {Error}",
+                    correlationId,
                     result.Error);
 
                 return BadRequest(new ErrorResponse
@@ -86,7 +89,8 @@ namespace OksiMin.Api.Controllers
             }
 
             _logger.LogInformation(
-                "Submission created successfully. SubmissionId: {SubmissionId}, Name: {Name}",
+                "Submission created successfully. CorrelationId: {CorrelationId}. SubmissionId: {SubmissionId}, Name: {Name}",
+                correlationId,
                 result.Data!.Id,
                 result.Data.Name);
 

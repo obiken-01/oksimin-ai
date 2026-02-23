@@ -34,20 +34,27 @@ namespace OksiMin.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetAllCategories()
         {
-            _logger.LogDebug("Fetching all categories");
+            var correlationId = HttpContext.Items["CorrelationId"]?.ToString();
+
+            _logger.LogDebug("Fetching all categories. CorrelationId: {CorrelationId}.",
+                correlationId);
 
             var result = await _categoryService.GetAllCategoriesAsync();
 
             if (!result.IsSuccess)
             {
-                _logger.LogError("Failed to retrieve categories. Error: {Error}", result.Error);
+                _logger.LogError("Failed to retrieve categories. CorrelationId: {CorrelationId}. Error: {Error}", 
+                    correlationId, 
+                    result.Error);
                 return StatusCode(500, new ErrorResponse
                 {
                     Message = result.Error ?? "Failed to retrieve categories"
                 });
             }
 
-            _logger.LogInformation("Retrieved {Count} categories", result.Data!.Count);
+            _logger.LogInformation("Retrieved {Count} categories. CorrelationId: {CorrelationId}.", 
+                result.Data!.Count, 
+                correlationId);
 
             return Ok(result.Data);
         }
@@ -66,13 +73,19 @@ namespace OksiMin.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetCategoryById(int id)
         {
-            _logger.LogDebug("Fetching category {CategoryId}", id);
+            var correlationId = HttpContext.Items["CorrelationId"]?.ToString();
+
+            _logger.LogDebug("Fetching category {CategoryId}. CorrelationId: {CorrelationId}.", 
+                id, 
+                correlationId);
 
             var result = await _categoryService.GetCategoryByIdAsync(id);
 
             if (!result.IsSuccess)
             {
-                _logger.LogWarning("Category {CategoryId} not found", id);
+                _logger.LogWarning("Category {CategoryId} not found. CorrelationId: {CorrelationId}.", 
+                    id, 
+                    correlationId);
                 return NotFound(new ErrorResponse
                 {
                     Message = result.Error ?? "Category not found"
@@ -96,13 +109,19 @@ namespace OksiMin.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetCategoryDetail(int id)
         {
-            _logger.LogDebug("Fetching category details for {CategoryId}", id);
+            var correlationId = HttpContext.Items["CorrelationId"]?.ToString();
+
+            _logger.LogDebug("Fetching category details for {CategoryId}. CorrelationId: {CorrelationId}.", 
+                id, 
+                correlationId);
 
             var result = await _categoryService.GetCategoryDetailAsync(id);
 
             if (!result.IsSuccess)
             {
-                _logger.LogWarning("Category {CategoryId} not found", id);
+                _logger.LogWarning("Category {CategoryId} not found. CorrelationId: {CorrelationId}.", 
+                    id, 
+                    correlationId);
                 return NotFound(new ErrorResponse
                 {
                     Message = result.Error ?? "Category not found"

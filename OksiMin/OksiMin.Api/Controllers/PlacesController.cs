@@ -34,20 +34,27 @@ namespace OksiMin.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetAllPlaces()
         {
-            _logger.LogDebug("Fetching all approved places");
+            var correlationId = HttpContext.Items["CorrelationId"]?.ToString();
+
+            _logger.LogDebug("Fetching all approved places. CorrelationId: {CorrelationId}.",
+                correlationId);
 
             var result = await _placeService.GetAllPlacesAsync();
 
             if (!result.IsSuccess)
             {
-                _logger.LogError("Failed to retrieve places. Error: {Error}", result.Error);
+                _logger.LogError("Failed to retrieve places. Error: {Error}. CorrelationId: {CorrelationId}.", 
+                    result.Error,
+                    correlationId);
                 return StatusCode(500, new ErrorResponse
                 {
                     Message = result.Error ?? "Failed to retrieve places"
                 });
             }
 
-            _logger.LogInformation("Retrieved {Count} places", result.Data!.Count);
+            _logger.LogInformation("Retrieved {Count} places. CorrelationId: {CorrelationId}.", 
+                result.Data!.Count, 
+                correlationId);
 
             return Ok(result.Data);
         }
@@ -66,13 +73,18 @@ namespace OksiMin.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetPlaceById(int id)
         {
-            _logger.LogDebug("Fetching place {PlaceId}", id);
+            var correlationId = HttpContext.Items["CorrelationId"]?.ToString();
+
+            _logger.LogDebug("Fetching place {PlaceId}. CorrelationId: {CorrelationId}.", 
+                id, correlationId);
 
             var result = await _placeService.GetPlaceByIdAsync(id);
 
             if (!result.IsSuccess)
             {
-                _logger.LogWarning("Place {PlaceId} not found", id);
+                _logger.LogWarning("Place {PlaceId} not found. CorrelationId: {CorrelationId}.", 
+                    id, 
+                    correlationId);
                 return NotFound(new ErrorResponse
                 {
                     Message = result.Error ?? "Place not found"
@@ -94,16 +106,21 @@ namespace OksiMin.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetPlacesByMunicipality(string municipality)
         {
-            _logger.LogDebug("Fetching places in municipality: {Municipality}", municipality);
+            var correlationId = HttpContext.Items["CorrelationId"]?.ToString();
+
+            _logger.LogDebug("Fetching places in municipality: {Municipality}. CorrelationId: {CorrelationId}.", 
+                municipality, 
+                correlationId);
 
             var result = await _placeService.GetPlacesByMunicipalityAsync(municipality);
 
             if (!result.IsSuccess)
             {
                 _logger.LogError(
-                    "Failed to retrieve places for {Municipality}. Error: {Error}",
+                    "Failed to retrieve places for {Municipality}. Error: {Error}. CorrelationId: {CorrelationId}.",
                     municipality,
-                    result.Error);
+                    result.Error,
+                    correlationId);
 
                 return StatusCode(500, new ErrorResponse
                 {
@@ -112,9 +129,10 @@ namespace OksiMin.Api.Controllers
             }
 
             _logger.LogInformation(
-                "Retrieved {Count} places in {Municipality}",
+                "Retrieved {Count} places in {Municipality}. CorrelationId: {CorrelationId}.",
                 result.Data!.Count,
-                municipality);
+                municipality,
+                correlationId);
 
             return Ok(result.Data);
         }
@@ -133,16 +151,21 @@ namespace OksiMin.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetPlacesByCategory(int categoryId)
         {
-            _logger.LogDebug("Fetching places in category: {CategoryId}", categoryId);
+            var correlationId = HttpContext.Items["CorrelationId"]?.ToString();
+
+            _logger.LogDebug("Fetching places in category: {CategoryId}. CorrelationId: {CorrelationId}.", 
+                categoryId, 
+                correlationId);
 
             var result = await _placeService.GetPlacesByCategoryAsync(categoryId);
 
             if (!result.IsSuccess)
             {
                 _logger.LogError(
-                    "Failed to retrieve places for category {CategoryId}. Error: {Error}",
+                    "Failed to retrieve places for category {CategoryId}. Error: {Error}. CorrelationId: {CorrelationId}.",
                     categoryId,
-                    result.Error);
+                    result.Error, 
+                    correlationId);
 
                 return BadRequest(new ErrorResponse
                 {
@@ -151,9 +174,10 @@ namespace OksiMin.Api.Controllers
             }
 
             _logger.LogInformation(
-                "Retrieved {Count} places in category {CategoryId}",
+                "Retrieved {Count} places in category {CategoryId}. CorrelationId: {CorrelationId}.",
                 result.Data!.Count,
-                categoryId);
+                categoryId, 
+                correlationId);
 
             return Ok(result.Data);
         }
@@ -172,6 +196,8 @@ namespace OksiMin.Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> SearchPlaces([FromQuery] string q)
         {
+            var correlationId = HttpContext.Items["CorrelationId"]?.ToString();
+
             if (string.IsNullOrWhiteSpace(q))
             {
                 return BadRequest(new ErrorResponse
@@ -180,16 +206,19 @@ namespace OksiMin.Api.Controllers
                 });
             }
 
-            _logger.LogDebug("Searching places with query: {SearchQuery}", q);
+            _logger.LogDebug("Searching places with query: {SearchQuery}. CorrelationId: {CorrelationId}.", 
+                q, 
+                correlationId);
 
             var result = await _placeService.SearchPlacesAsync(q);
 
             if (!result.IsSuccess)
             {
                 _logger.LogError(
-                    "Failed to search places with query {SearchQuery}. Error: {Error}",
+                    "Failed to search places with query {SearchQuery}. Error: {Error}. CorrelationId: {CorrelationId}.",
                     q,
-                    result.Error);
+                    result.Error, 
+                    correlationId);
 
                 return StatusCode(500, new ErrorResponse
                 {
@@ -198,9 +227,10 @@ namespace OksiMin.Api.Controllers
             }
 
             _logger.LogInformation(
-                "Found {Count} places matching query: {SearchQuery}",
+                "Found {Count} places matching query: {SearchQuery}. CorrelationId: {CorrelationId}.",
                 result.Data!.Count,
-                q);
+                q, 
+                correlationId);
 
             return Ok(result.Data);
         }

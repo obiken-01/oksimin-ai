@@ -1,6 +1,8 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
+using OksiMin.Api.Extensions;
+using OksiMin.Api.Filters;
 using OksiMin.Application.Interfaces;
 using OksiMin.Application.Services;
 using OksiMin.Application.Validators;
@@ -9,9 +11,8 @@ using Serilog;
 using Serilog.Events;
 
 // ============================================
-// STEP 1: Configure Serilog BEFORE building the app
+// STEP 1: Configure Serilog
 // ============================================
-
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
@@ -20,6 +21,7 @@ Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .Enrich.WithMachineName()
     .Enrich.WithThreadId()
+    .Enrich.WithEnvironmentName()
     .Enrich.WithProperty("Application", "OksiMin.Api")
     .WriteTo.Console(
         outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}")
@@ -33,7 +35,9 @@ Log.Logger = new LoggerConfiguration()
         path: "Logs/oksimin-structured-.json",
         rollingInterval: RollingInterval.Day,
         retainedFileCountLimit: 30)
-    .WriteTo.Seq("http://localhost:5341")  // ← ADD THIS LINE
+    .WriteTo.Seq(
+        serverUrl: "http://localhost:5341",
+        restrictedToMinimumLevel: LogEventLevel.Debug)
     .CreateLogger();
 
 try
@@ -44,13 +48,11 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
-    // ============================================
-    // STEP 2: Replace default logging with Serilog
-    // ============================================
+    // Replace default logging with Serilog
     builder.Host.UseSerilog();
 
     // ============================================
-    // STEP 3: Add services to the container
+    // STEP 2: Add services
     // ============================================
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
@@ -68,7 +70,10 @@ try
             }
         });
 
-        // Enable XML comments for better Swagger documentation
+        // Add Correlation ID to Swagger
+        c.OperationFilter<CorrelationIdOperationFilter>();
+
+        // Enable XML comments
         var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
         var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
         if (File.Exists(xmlPath))
@@ -91,6 +96,7 @@ try
         }
     });
 
+    // Register DbContext interface for Application layer
     builder.Services.AddScoped<IApplicationDbContext>(provider =>
         provider.GetRequiredService<OksiMinDbContext>());
 
@@ -109,22 +115,32 @@ try
         {
             policy.WithOrigins("http://localhost:3000", "http://localhost:5173")
                   .AllowAnyHeader()
-                  .AllowAnyMethod();
+                  .AllowAnyMethod()
+                  .WithExposedHeaders("X-Correlation-ID"); // Expose correlation ID to frontend
         });
     });
 
-    Log.Information("Building application...");
+    // HttpContext accessor for accessing HttpContext in services
+    builder.Services.AddHttpContextAccessor();
+
     var app = builder.Build();
-    Log.Information("Application built successfully");
 
     // ============================================
-    // STEP 4: Add Serilog Request Logging
+    // STEP 3: Configure middleware pipeline
+    // IMPORTANT: Order matters!
     // ============================================
+
+    // 1. Correlation ID (FIRST - before any other middleware)
+    app.UseCorrelationId();
+
+    // 2. Global Exception Handler (SECOND - catches all exceptions)
+    app.UseGlobalExceptionHandler();
+
+    // 3. Serilog Request Logging (THIRD - logs all requests with correlation ID)
     app.UseSerilogRequestLogging(options =>
     {
         options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
 
-        // Customize log level based on response
         options.GetLevel = (httpContext, elapsed, ex) => ex != null
             ? LogEventLevel.Error
             : httpContext.Response.StatusCode > 499
@@ -133,27 +149,31 @@ try
                     ? LogEventLevel.Warning
                     : LogEventLevel.Information;
 
-        // Enrich logs with additional context
         options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
         {
             diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
             diagnosticContext.Set("RequestScheme", httpContext.Request.Scheme);
             diagnosticContext.Set("RemoteIP", httpContext.Connection.RemoteIpAddress?.ToString());
             diagnosticContext.Set("UserAgent", httpContext.Request.Headers["User-Agent"].ToString());
+            diagnosticContext.Set("CorrelationId", httpContext.Items["CorrelationId"]?.ToString() ?? "unknown");
         };
     });
 
-    // ============================================
-    // STEP 5: Configure the HTTP request pipeline
-    // ============================================
+    // 4. Swagger (Development only)
     if (app.Environment.IsDevelopment())
     {
         app.UseSwagger();
-        app.UseSwaggerUI();
+        app.UseSwaggerUI(c =>
+        {
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "OksiMin.Api v1");
+            c.DisplayRequestDuration();
+        });
 
-        Log.Information("Swagger UI available at: {SwaggerUrl}", "/swagger");
+        Log.Information("Swagger UI available at: /swagger");
+        Log.Information("Seq UI available at: http://localhost:5341");
     }
 
+    // 5. Standard ASP.NET Core middleware
     app.UseHttpsRedirection();
     app.UseCors("AllowFrontend");
     app.UseAuthorization();
@@ -162,15 +182,14 @@ try
     Log.Information("========================================");
     Log.Information("OksiMin.Api application started successfully");
     Log.Information("Environment: {Environment}", app.Environment.EnvironmentName);
+    Log.Information("Middleware: CorrelationId, GlobalExceptionHandler, SerilogRequestLogging");
     Log.Information("========================================");
 
     app.Run();
 }
 catch (Exception ex)
 {
-    Log.Fatal(ex, "========================================");
     Log.Fatal(ex, "Application terminated unexpectedly");
-    Log.Fatal(ex, "========================================");
 }
 finally
 {
